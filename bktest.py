@@ -9,7 +9,7 @@ UI_WIDTH = 320
 MAP_AREA = WIDTH - UI_WIDTH
 FPS = 60
 AGENT_COUNT = 45
-EYE_FADE_TIME = 2.0  # Time for eye animation
+EYE_FADE_TIME = 2.0 
 
 # Surveillance Aesthetic Colors
 COLOR_BG = (2, 4, 8)
@@ -17,6 +17,7 @@ COLOR_WHITE = (255, 255, 255)
 COLOR_ACCENT = (0, 255, 180)  
 COLOR_DANGER = (255, 45, 45)  
 COLOR_UI_PANEL = (10, 12, 18)
+COLOR_TRUST = (0, 150, 255)
 
 # Pedestrian Settings
 MINSPEED = .6
@@ -32,9 +33,9 @@ GTA_PHRASES = [
 ]
 
 RIOT_PHRASES = [
-    "Wasted. Re-spawning in anger.", "Forget the bowling, Roman!",
-    "Commiting a hit and run.", "Grand Theft Auto in progress.",
-    "Busting a Cluckin' Bell window.", "Aggressive jaywalking."
+    "Authority is a lie!", "The system is rigged!",
+    "WAKE UP PEOPLE!", "Stop cooperating!",
+    "Busting a Cluckin' Bell window.", "They are hiding the truth!"
 ]
 
 def clamp(val, min_v, max_v):
@@ -114,8 +115,9 @@ class Agent:
     def __init__(self, id, mh):
         self.id, self.mh = id, mh
         self.has_app = random.random() < 0.6
-        self.hostility = random.uniform(0.1, 0.4)
-        self.radius = 3
+        self.trust_level = random.uniform(0.3, 0.7) # 0 = Misinformed, 1 = Trusts Aegis
+        self.hostility = 0.5
+        self.radius = 8
         self.x, self.y = 0.0, 0.0
         self.spawn()
         self.angle = random.choice([0, 90, 180, 270])
@@ -131,6 +133,9 @@ class Agent:
         self.x, self.y = 100.0, 100.0
 
     def update(self, is_controlled, agents, pulses):
+        # Hostility is tied to Trust. Low trust = High Hostility
+        self.hostility = 1.0 - self.trust_level
+        
         old_x, old_y = self.x, self.y
         if is_controlled:
             keys = pygame.key.get_pressed()
@@ -142,7 +147,7 @@ class Agent:
                 self.timer -= 1
                 if self.timer <= 0: 
                     self.state = "WALKING"; self.angle = random.choice([0, 90, 180, 270])
-                    if self.hostility < 0.7: self.activity = random.choice(GTA_PHRASES)
+                    if self.trust_level > 0.4: self.activity = random.choice(GTA_PHRASES)
             else:
                 if random.random() < 0.005: 
                     self.state = "IDLE"; self.timer = 60
@@ -156,7 +161,12 @@ class Agent:
             if other == self: continue
             dist = math.hypot(self.x - other.x, self.y - other.y)
             if dist < self.radius + other.radius:
-                pulses.append(Pulse(self.x, self.y, (150, 150, 150), max_radius=20))
+                # BELIEF SPREAD LOGIC: Misinformation is contagious
+                if self.trust_level < 0.3 and other.trust_level > 0.3:
+                    other.trust_level -= 0.05 # Radicalize others
+                elif self.trust_level > 0.8 and other.trust_level < 0.8:
+                    other.trust_level += 0.05 # De-radicalize others
+                
                 overlap = (self.radius + other.radius) - dist
                 ang = math.atan2(self.y - other.y, self.x - other.x)
                 self.x += math.cos(ang) * overlap; self.y += math.sin(ang) * overlap
@@ -193,11 +203,12 @@ class Simulation:
         world_surf = pygame.Surface((MAP_AREA, HEIGHT))
         world_surf.blit(self.mh.surface, (0, 0))
         
+        # Heatmap based on Hostility (Lack of Trust)
         heat_surf = pygame.Surface((MAP_AREA, HEIGHT), pygame.SRCALPHA)
         for a in self.agents:
-            if a.hostility > 0.5:
-                alpha = int(a.hostility * 80)
-                pygame.draw.circle(heat_surf, (255, 0, 0, alpha), (int(a.x), int(a.y)), 45)
+            if a.hostility > 0.6:
+                alpha = int(a.hostility * 90)
+                pygame.draw.circle(heat_surf, (255, 0, 0, alpha), (int(a.x), int(a.y)), 50)
         world_surf.blit(heat_surf, (0, 0))
 
         for p in self.pulses[:]:
@@ -205,7 +216,8 @@ class Simulation:
             else: p.draw(world_surf)
 
         for a in self.agents:
-            r, g = clamp(255*a.hostility, 0, 255), clamp(255*(1-a.hostility), 0, 255)
+            r = clamp(255 * a.hostility, 0, 255)
+            g = clamp(255 * (1 - a.hostility), 0, 255)
             pygame.draw.circle(world_surf, (r, g, 50), (int(a.x), int(a.y)), a.radius)
             if a.has_app: pygame.draw.circle(world_surf, COLOR_WHITE, (int(a.x), int(a.y)), a.radius+2, 1)
 
@@ -219,35 +231,43 @@ class Simulation:
             self.eye_timer -= 1/FPS
             progress = self.eye_timer / EYE_FADE_TIME
             alpha = clamp(math.sin(progress * math.pi) * 200, 0, 255)
-            
             temp_eye = self.eye_img.copy()
             temp_eye.fill((255, 255, 255, alpha), special_flags=pygame.BLEND_RGBA_MULT)
             self.screen.blit(temp_eye, (MAP_AREA//2 - 150, HEIGHT//2 - 150))
 
-    def render_notifications(self):
-        f_notif = pygame.font.SysFont("Courier", 18, bold=True)
-        for i, n in enumerate(self.notifications[:]):
-            if not n.update():
-                self.notifications.remove(n)
-                continue
-            text_surf = f_notif.render(f"!! {n.text} !!", True, COLOR_DANGER)
-            text_surf.set_alpha(n.alpha)
-            self.screen.blit(text_surf, (20, HEIGHT - 50 - (i * 30)))
+    def draw_misinfo_box(self):
+        # Top Left Box
+        box_rect = pygame.Rect(20, 20, 280, 100)
+        pygame.draw.rect(self.screen, (10, 10, 15), box_rect)
+        pygame.draw.rect(self.screen, COLOR_ACCENT, box_rect, 2)
+        
+        f = pygame.font.SysFont("Courier", 14, bold=True)
+        misinfo_count = len([a for a in self.agents if a.trust_level < 0.3])
+        trust_avg = sum(a.trust_level for a in self.agents) / len(self.agents)
+        
+        self.screen.blit(f.render(f"RADICALIZED: {misinfo_count}", True, COLOR_DANGER), (35, 35))
+        self.screen.blit(f.render(f"GLOBAL TRUST: {int(trust_avg*100)}%", True, COLOR_TRUST), (35, 60))
+        
+        # Mini bar
+        pygame.draw.rect(self.screen, (40, 40, 40), (35, 85, 200, 5))
+        pygame.draw.rect(self.screen, COLOR_TRUST, (35, 85, int(200*trust_avg), 5))
 
     def run(self):
         while True:
             self.screen.fill(COLOR_BG)
             self.draw_world()
+            self.draw_misinfo_box()
             
             # Sidebar UI
             pygame.draw.rect(self.screen, COLOR_UI_PANEL, (MAP_AREA, 0, UI_WIDTH, HEIGHT))
             f = pygame.font.SysFont("Courier", 14)
-            self.screen.blit(f.render("[R] Induce Riot", True, COLOR_DANGER), (MAP_AREA+20, 20))
-            self.screen.blit(f.render("[P] Digital Peace", True, COLOR_ACCENT), (MAP_AREA+20, 40))
+            self.screen.blit(f.render("[R] Seed Misinfo", True, COLOR_DANGER), (MAP_AREA+20, 20))
+            self.screen.blit(f.render("[P] Counter Narrative", True, COLOR_ACCENT), (MAP_AREA+20, 40))
             
             if self.selected:
                 self.screen.blit(f.render(f"ENTITY: {self.selected.id:03}", True, COLOR_ACCENT), (MAP_AREA+20, 80))
-                self.screen.blit(f.render(f"ACT: {self.selected.activity}", True, COLOR_WHITE), (MAP_AREA+20, 110))
+                self.screen.blit(f.render(f"TRUST: {int(self.selected.trust_level*100)}%", True, COLOR_WHITE), (MAP_AREA+20, 110))
+                self.screen.blit(f.render(f"ACT: {self.selected.activity}", True, COLOR_WHITE), (MAP_AREA+20, 140))
             
             for i, (m, aid) in enumerate(reversed(self.logs)):
                 self.screen.blit(f.render(f"> {m}", True, (120, 120, 130)), (MAP_AREA+20, HEIGHT - 30 - i*20))
@@ -259,53 +279,48 @@ class Simulation:
                     if mx < MAP_AREA:
                         w_mx = (mx / MAP_AREA) * (MAP_AREA / self.cam.zoom) + self.cam.x
                         w_my = (my / HEIGHT) * (HEIGHT / self.cam.zoom) + self.cam.y
-                        
-                        target = None
-                        for a in self.agents:
-                            if math.hypot(a.x-w_mx, a.y-w_my) < 15:
-                                target = a
-                                break
-                        
+                        target = next((a for a in self.agents if math.hypot(a.x-w_mx, a.y-w_my) < 20), None)
                         if target:
                             if target.has_app:
-                                if self.selected != target:
-                                    self.selected = target
-                                    self.eye_timer = EYE_FADE_TIME
-                                    self.add_log(f"Linked: {target.id}", target.id)
-                            else:
-                                self.add_notification("ENCRYPTION ERROR: ACCESS DENIED")
-                                self.add_log("Access Denied: Unencrypted Target")
-                        else:
-                            self.selected = None
+                                self.selected = target
+                                self.eye_timer = EYE_FADE_TIME
+                            else: self.add_notification("ENCRYPTION ERROR, ACCESS DENIED")
+                        else: self.selected = None
 
                 if event.type == pygame.KEYDOWN:
                     mx, my = pygame.mouse.get_pos()
                     w_mx = (mx / MAP_AREA) * (MAP_AREA / self.cam.zoom) + self.cam.x
                     w_my = (my / HEIGHT) * (HEIGHT / self.cam.zoom) + self.cam.y
                     
-                    if event.key == pygame.K_r:
-                        self.add_log("PROTOCOL: UNREST", -1)
-                        self.pulses.append(Pulse(w_mx, w_my, COLOR_DANGER, max_radius=120))
+                    if event.key == pygame.K_r: # SEED MISINFO
+                        self.add_log("MISINFO SPIKE DETECTED", -1)
+                        self.pulses.append(Pulse(w_mx, w_my, COLOR_DANGER, max_radius=150))
                         for a in self.agents:
-                            if math.hypot(a.x - w_mx, a.y - w_my) < 130:
-                                a.hostility = 1.0
+                            if math.hypot(a.x - w_mx, a.y - w_my) < 150:
+                                a.trust_level = 0.0
                                 a.activity = random.choice(RIOT_PHRASES)
                                 
-                    if event.key == pygame.K_p:
-                        self.add_log("PROTOCOL: HARMONY", -1)
-                        self.pulses.append(Pulse(w_mx, w_my, COLOR_ACCENT, max_radius=120))
+                    if event.key == pygame.K_p: # COUNTER NARRATIVE
+                        self.add_log("COUNTER-NARRATIVE DEPLOYED", -1)
+                        self.pulses.append(Pulse(w_mx, w_my, COLOR_ACCENT, max_radius=150))
                         for a in self.agents:
-                            if math.hypot(a.x - w_mx, a.y - w_my) < 130 and a.has_app:
-                                a.hostility = 0.0
-                                a.activity = "Feeling very compliant."
+                            if math.hypot(a.x - w_mx, a.y - w_my) < 150 and a.has_app:
+                                a.trust_level = 1.0
+                                a.activity = "Trusting the process."
 
             self.cam.update(self.selected)
             for a in self.agents:
-                hit = a.update(a == self.selected, self.agents, self.pulses)
-                if hit and random.random() < 0.05: self.add_log(f"Contact: {a.id} vs {hit.id}", a.id)
+                a.update(a == self.selected, self.agents, self.pulses)
 
             self.update_eye()
-            self.render_notifications()
+            for n in self.notifications[:]:
+                if n.update():
+                    f_notif = pygame.font.SysFont("Courier", 18, bold=True)
+                    t_surf = f_notif.render(f"!! {n.text} !!", True, COLOR_DANGER)
+                    t_surf.set_alpha(n.alpha)
+                    self.screen.blit(t_surf, (20, HEIGHT - 50))
+                else: self.notifications.remove(n)
+
             pygame.display.flip(); self.clock.tick(FPS)
 
 if __name__ == "__main__":
