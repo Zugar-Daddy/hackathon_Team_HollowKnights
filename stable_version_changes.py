@@ -1,6 +1,8 @@
 import pygame
 import random
 import math
+import json
+import time
 import os
 
 # --- SETTINGS ---
@@ -115,9 +117,9 @@ class Agent:
     def __init__(self, id, mh):
         self.id, self.mh = id, mh
         self.has_app = random.random() < 0.6
-        self.trust_level = random.uniform(0.3, 0.7) # 0 = Misinformed, 1 = Trusts Aegis
+        self.trust_level = random.uniform(0.3, 0.7) 
         self.hostility = 0.5
-        self.radius = 8
+        self.radius = 5
         self.x, self.y = 0.0, 0.0
         self.spawn()
         self.angle = random.choice([0, 90, 180, 270])
@@ -125,6 +127,8 @@ class Agent:
         self.state = "WALKING"
         self.timer = 0
         self.activity = random.choice(GTA_PHRASES)
+        self.username = ""
+        self.role = ""
 
     def spawn(self):
         for _ in range(1000):
@@ -133,9 +137,7 @@ class Agent:
         self.x, self.y = 100.0, 100.0
 
     def update(self, is_controlled, agents, pulses):
-        # Hostility is tied to Trust. Low trust = High Hostility
         self.hostility = 1.0 - self.trust_level
-        
         old_x, old_y = self.x, self.y
         if is_controlled:
             keys = pygame.key.get_pressed()
@@ -161,11 +163,10 @@ class Agent:
             if other == self: continue
             dist = math.hypot(self.x - other.x, self.y - other.y)
             if dist < self.radius + other.radius:
-                # BELIEF SPREAD LOGIC: Misinformation is contagious
                 if self.trust_level < 0.3 and other.trust_level > 0.3:
-                    other.trust_level -= 0.05 # Radicalize others
+                    other.trust_level -= 0.05 
                 elif self.trust_level > 0.8 and other.trust_level < 0.8:
-                    other.trust_level += 0.05 # De-radicalize others
+                    other.trust_level += 0.05 
                 
                 overlap = (self.radius + other.radius) - dist
                 ang = math.atan2(self.y - other.y, self.x - other.x)
@@ -186,14 +187,62 @@ class Simulation:
         self.logs = []
         self.clock = pygame.time.Clock()
 
-        # Eye Graphic Setup
-        self.eye_img = pygame.Surface((300, 300), pygame.SRCALPHA)
-        pygame.draw.ellipse(self.eye_img, (255, 255, 255, 120), (20, 80, 260, 140))
-        pygame.draw.circle(self.eye_img, (0, 255, 180, 180), (150, 150), 50)
+        self.search_query = ""
+        self.search_active = False
+        self.filtered_agents = []
+        
+        # Load Usernames
+        if os.path.exists("users.json"):
+            with open("users.json", "r") as f:
+                user_db = json.load(f)
+                personnel = user_db["authorized_personnel"]
+        else:
+            personnel = []
+            
+        for i, agent in enumerate(self.agents):
+            if i < len(personnel):
+                agent.username = personnel[i]["username"]
+                agent.role = personnel[i]["role"]
+            else:
+                agent.username = f"Civ_{i}"
+                agent.role = "Civilian"
+
+        # Eye Graphic Setup (Display original eye image)
+        if os.path.exists("eye.png"):
+            self.eye_img = pygame.image.load("eye.png").convert_alpha()
+            self.eye_img = pygame.transform.scale(self.eye_img, (300, 300))
+        else:
+            # Fallback if image missing
+            self.eye_img = pygame.Surface((300, 300), pygame.SRCALPHA)
+            pygame.draw.circle(self.eye_img, (0, 255, 180, 180), (150, 150), 100, 2)
+            
         self.eye_timer = 0.0
 
+    def sync_to_file(self, event_type=None, pos=None, message=None):
+        heat_data = [[int(a.x), int(a.y), round(a.hostility, 2)] for a in self.agents]
+        data = {"recent_events": [], "heat_map": heat_data}
+        if os.path.exists("aegis_state.json"):
+            try:
+                with open("aegis_state.json", "r") as f:
+                    old_data = json.load(f)
+                    data["recent_events"] = old_data.get("recent_events", [])
+            except: pass
+
+        if event_type:
+            timestamp = time.strftime("%H:%M:%S")
+            data["recent_events"].append({
+                "type": event_type, 
+                "pos": [int(pos[0]), int(pos[1])], 
+                "timestamp": timestamp, 
+                "message": message
+            })
+            data["recent_events"] = data["recent_events"][-15:]
+
+        with open("aegis_state.json", "w") as f:
+            json.dump(data, f)
+
     def add_log(self, msg, aid=-1):
-        self.logs.append((msg, aid)); 
+        self.logs.append((msg, aid))
         if len(self.logs) > 15: self.logs.pop(0)
 
     def add_notification(self, text):
@@ -203,7 +252,6 @@ class Simulation:
         world_surf = pygame.Surface((MAP_AREA, HEIGHT))
         world_surf.blit(self.mh.surface, (0, 0))
         
-        # Heatmap based on Hostility (Lack of Trust)
         heat_surf = pygame.Surface((MAP_AREA, HEIGHT), pygame.SRCALPHA)
         for a in self.agents:
             if a.hostility > 0.6:
@@ -230,13 +278,15 @@ class Simulation:
         if self.eye_timer > 0:
             self.eye_timer -= 1/FPS
             progress = self.eye_timer / EYE_FADE_TIME
-            alpha = clamp(math.sin(progress * math.pi) * 200, 0, 255)
+            # Pulsing alpha
+            alpha = int(clamp(math.sin(progress * math.pi) * 255, 0, 255))
             temp_eye = self.eye_img.copy()
-            temp_eye.fill((255, 255, 255, alpha), special_flags=pygame.BLEND_RGBA_MULT)
+            # Apply transparency to the original eye image
+            temp_eye.set_alpha(alpha)
+            # Center the original eye.png on the target screen area
             self.screen.blit(temp_eye, (MAP_AREA//2 - 150, HEIGHT//2 - 150))
 
     def draw_misinfo_box(self):
-        # Top Left Box
         box_rect = pygame.Rect(20, 20, 280, 100)
         pygame.draw.rect(self.screen, (10, 10, 15), box_rect)
         pygame.draw.rect(self.screen, COLOR_ACCENT, box_rect, 2)
@@ -247,8 +297,6 @@ class Simulation:
         
         self.screen.blit(f.render(f"RADICALIZED: {misinfo_count}", True, COLOR_DANGER), (35, 35))
         self.screen.blit(f.render(f"GLOBAL TRUST: {int(trust_avg*100)}%", True, COLOR_TRUST), (35, 60))
-        
-        # Mini bar
         pygame.draw.rect(self.screen, (40, 40, 40), (35, 85, 200, 5))
         pygame.draw.rect(self.screen, COLOR_TRUST, (35, 85, int(200*trust_avg), 5))
 
@@ -265,17 +313,53 @@ class Simulation:
             self.screen.blit(f.render("[P] Counter Narrative", True, COLOR_ACCENT), (MAP_AREA+20, 40))
             
             if self.selected:
-                self.screen.blit(f.render(f"ENTITY: {self.selected.id:03}", True, COLOR_ACCENT), (MAP_AREA+20, 80))
-                self.screen.blit(f.render(f"TRUST: {int(self.selected.trust_level*100)}%", True, COLOR_WHITE), (MAP_AREA+20, 110))
-                self.screen.blit(f.render(f"ACT: {self.selected.activity}", True, COLOR_WHITE), (MAP_AREA+20, 140))
+                self.screen.blit(f.render(f"ENTITY: {self.selected.username}", True, COLOR_ACCENT), (MAP_AREA+20, 80))
+                self.screen.blit(f.render(f"ROLE: {self.selected.role}", True, COLOR_WHITE), (MAP_AREA+20, 100))
+                self.screen.blit(f.render(f"TRUST: {int(self.selected.trust_level*100)}%", True, COLOR_WHITE), (MAP_AREA+20, 120))
+                self.screen.blit(f.render(f"ACT: {self.selected.activity}", True, (200, 200, 200)), (MAP_AREA+20, 145))
             
             for i, (m, aid) in enumerate(reversed(self.logs)):
                 self.screen.blit(f.render(f"> {m}", True, (120, 120, 130)), (MAP_AREA+20, HEIGHT - 30 - i*20))
 
+            # --- SEARCH BAR RENDER ---
+            search_bg = pygame.Rect(MAP_AREA + 20, 180, 280, 30)
+            pygame.draw.rect(self.screen, (30, 30, 40), search_bg)
+            color = COLOR_ACCENT if self.search_active else (100, 100, 100)
+            pygame.draw.rect(self.screen, color, search_bg, 1)
+            search_label = f.render(f"SEARCH: {self.search_query}_", True, COLOR_WHITE)
+            self.screen.blit(search_label, (MAP_AREA + 30, 187))
+
+            # --- SEARCH RESULTS LOGIC ---
+            if self.search_query:
+                self.filtered_agents = [a for a in self.agents if self.search_query.lower() in a.username.lower()][:8]
+                for i, fa in enumerate(self.filtered_agents):
+                    res_rect = pygame.Rect(MAP_AREA + 20, 220 + (i*25), 280, 22)
+                    pygame.draw.rect(self.screen, (20, 20, 30), res_rect)
+                    res_txt = f.render(f" > {fa.username} ({fa.role})", True, COLOR_ACCENT)
+                    self.screen.blit(res_txt, (MAP_AREA + 25, 223 + (i*25)))
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT: return
+                
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     mx, my = pygame.mouse.get_pos()
+                    
+                    # Search Bar Click Detection
+                    if search_bg.collidepoint(mx, my):
+                        self.search_active = True
+                    else:
+                        self.search_active = False
+
+                    # Search Result Click Detection
+                    if self.search_query:
+                        for i in range(len(self.filtered_agents)):
+                            res_rect = pygame.Rect(MAP_AREA + 20, 220 + (i*25), 280, 22)
+                            if res_rect.collidepoint(mx, my):
+                                self.selected = self.filtered_agents[i]
+                                self.eye_timer = EYE_FADE_TIME
+                                self.search_query = ""
+                                self.search_active = False
+
                     if mx < MAP_AREA:
                         w_mx = (mx / MAP_AREA) * (MAP_AREA / self.cam.zoom) + self.cam.x
                         w_my = (my / HEIGHT) * (HEIGHT / self.cam.zoom) + self.cam.y
@@ -288,25 +372,40 @@ class Simulation:
                         else: self.selected = None
 
                 if event.type == pygame.KEYDOWN:
-                    mx, my = pygame.mouse.get_pos()
-                    w_mx = (mx / MAP_AREA) * (MAP_AREA / self.cam.zoom) + self.cam.x
-                    w_my = (my / HEIGHT) * (HEIGHT / self.cam.zoom) + self.cam.y
-                    
-                    if event.key == pygame.K_r: # SEED MISINFO
-                        self.add_log("MISINFO SPIKE DETECTED", -1)
-                        self.pulses.append(Pulse(w_mx, w_my, COLOR_DANGER, max_radius=150))
-                        for a in self.agents:
-                            if math.hypot(a.x - w_mx, a.y - w_my) < 150:
-                                a.trust_level = 0.0
-                                a.activity = random.choice(RIOT_PHRASES)
-                                
-                    if event.key == pygame.K_p: # COUNTER NARRATIVE
-                        self.add_log("COUNTER-NARRATIVE DEPLOYED", -1)
-                        self.pulses.append(Pulse(w_mx, w_my, COLOR_ACCENT, max_radius=150))
-                        for a in self.agents:
-                            if math.hypot(a.x - w_mx, a.y - w_my) < 150 and a.has_app:
-                                a.trust_level = 1.0
-                                a.activity = "Trusting the process."
+                    if self.search_active:
+                        if event.key == pygame.K_BACKSPACE:
+                            self.search_query = self.search_query[:-1]
+                        elif event.key == pygame.K_RETURN:
+                            if self.filtered_agents:
+                                self.selected = self.filtered_agents[0]
+                                self.eye_timer = EYE_FADE_TIME
+                                self.search_active = False
+                                self.search_query = ""
+                        else:
+                            self.search_query += event.unicode
+                    else:
+                        # KEYBOARD ACTIONS (ONLY IF NOT SEARCHING)
+                        mx, my = pygame.mouse.get_pos()
+                        w_mx = (mx / MAP_AREA) * (MAP_AREA / self.cam.zoom) + self.cam.x
+                        w_my = (my / HEIGHT) * (HEIGHT / self.cam.zoom) + self.cam.y
+                        
+                        if event.key == pygame.K_r: 
+                            self.sync_to_file("MISINFO", (w_mx, w_my), "RIOT SEEDED")
+                            self.add_log("MISINFO SPIKE DETECTED", -1)
+                            self.pulses.append(Pulse(w_mx, w_my, COLOR_DANGER, max_radius=150))
+                            for a in self.agents:
+                                if math.hypot(a.x - w_mx, a.y - w_my) < 150:
+                                    a.trust_level = 0.0
+                                    a.activity = random.choice(RIOT_PHRASES)
+
+                        if event.key == pygame.K_p:
+                            self.sync_to_file("COUNTER", (w_mx, w_my), "TRUTH SYNCED")
+                            self.add_log("COUNTER-NARRATIVE DEPLOYED", -1)
+                            self.pulses.append(Pulse(w_mx, w_my, COLOR_ACCENT, max_radius=150))
+                            for a in self.agents:
+                                if math.hypot(a.x - w_mx, a.y - w_my) < 150 and a.has_app:
+                                    a.trust_level = 1.0
+                                    a.activity = "Trusting the process."
 
             self.cam.update(self.selected)
             for a in self.agents:
@@ -321,7 +420,8 @@ class Simulation:
                     self.screen.blit(t_surf, (20, HEIGHT - 50))
                 else: self.notifications.remove(n)
 
-            pygame.display.flip(); self.clock.tick(FPS)
+            pygame.display.flip()
+            self.clock.tick(FPS)
 
 if __name__ == "__main__":
     Simulation().run()

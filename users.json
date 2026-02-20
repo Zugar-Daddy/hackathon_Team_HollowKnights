@@ -1,0 +1,36 @@
+{
+  "authorized_personnel": [
+    { "username": "Chief_Miller", "password": "CPD_101", "role": "Cop", "clearance": "L5_Admin" },
+    { "username": "Officer_Rodriguez", "password": "Shield99", "role": "Cop", "clearance": "L3_Field" },
+    { "username": "Sgt_Higgins", "password": "IronWall", "role": "Cop", "clearance": "L4_Tactical" },
+    { "username": "Det_Starks", "password": "NoClues", "role": "Cop", "clearance": "L4_Investigator" },
+    { "username": "Officer_Chen", "password": "Patrol88", "role": "Cop", "clearance": "L2_Patrol" },
+    { "username": "SWAT_Lead_Alpha", "password": "BreachNow", "role": "Cop", "clearance": "L5_SpecialOps" },
+    { "username": "Dispatch_01", "password": "RadioSilence", "role": "Cop", "clearance": "L3_Comm" },
+    { "username": "K9_Handler_Rex", "password": "GoodBoy", "role": "Cop", "clearance": "L2_Field" },
+    { "username": "Undercover_X", "password": "HiddenEye", "role": "Cop", "clearance": "L5_DeepCover" },
+    { "username": "Chief_Wiggum", "password": "DonutLover", "role": "Cop", "clearance": "L1_Basic" },
+
+    { "username": "Big_Tony", "password": "CosaNostra", "role": "Criminal", "clearance": "DarkNet_L5" },
+    { "username": "Snake_Eyes", "password": "Gambler7", "role": "Criminal", "clearance": "DarkNet_L3" },
+    { "username": "Vandal_V", "password": "SprayIt", "role": "Criminal", "clearance": "DarkNet_L1" },
+    { "username": "Cyber_Ghost", "password": "NullPointer", "role": "Criminal", "clearance": "DarkNet_L5" },
+    { "username": "Street_Doc", "password": "BlackMarket", "role": "Criminal", "clearance": "DarkNet_L2" },
+    { "username": "Heist_Master", "password": "VaultCode", "role": "Criminal", "clearance": "DarkNet_L4" },
+    { "username": "Runner_Jin", "password": "FastCash", "role": "Criminal", "clearance": "DarkNet_L2" },
+    { "username": "Slick_Rick", "password": "SmoothOp", "role": "Criminal", "clearance": "DarkNet_L3" },
+    { "username": "Shadow_Step", "password": "QuietNight", "role": "Criminal", "clearance": "DarkNet_L4" },
+    { "username": "Anarchy_King", "password": "BurnItAll", "role": "Criminal", "clearance": "DarkNet_L5" },
+
+    { "username": "Citizen_Jane", "password": "HomeOwner", "role": "Civilian", "clearance": "L1_Public" },
+    { "username": "Shop_Owner_Lee", "password": "Open247", "role": "Civilian", "clearance": "L1_Public" },
+    { "username": "Taxi_Driver_Joe", "password": "FollowTheGPS", "role": "Civilian", "clearance": "L1_Public" },
+    { "username": "Mayor_Viceroy", "password": "ReElectMe", "role": "Civilian", "clearance": "L4_Civic" },
+    { "username": "Reporter_News6", "password": "BreakingNews", "role": "Civilian", "clearance": "L2_Media" },
+    { "username": "Student_C", "password": "FinalsWeek", "role": "Civilian", "clearance": "L1_Public" },
+    { "username": "Janitor_Bob", "password": "MasterKey", "role": "Civilian", "clearance": "L3_Service" },
+    { "username": "CEO_V_Corp", "password": "StockMarket", "role": "Civilian", "clearance": "L5_Corporate" },
+    { "username": "Blogger_Truth", "password": "WakeUpWorld", "role": "Civilian", "clearance": "L2_Media" },
+    { "username": "Chef_Mario", "password": "PastaPower", "role": "Civilian", "clearance": "L1_Public" }
+  ]
+}
