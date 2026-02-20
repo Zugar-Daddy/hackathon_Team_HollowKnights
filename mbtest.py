@@ -13,10 +13,9 @@ EYE_FADE_TIME = 2.0  # Seconds for the eye overlay to fade
 
 # Colors
 COLOR_BG = (3, 5, 8)
-COLOR_WHITE = (240, 240, 240)
+COLOR_WHITE = (255, 255, 255)
 COLOR_ACCENT = (0, 255, 180)
 COLOR_DANGER = (255, 45, 45)
-COLOR_GRID = (15, 20, 30)
 COLOR_UI_PANEL = (10, 12, 18)
 
 # --- INTERACTION PHRASES ---
@@ -41,8 +40,8 @@ class MapHandler:
         self.mask = pygame.mask.from_threshold(self.surface, COLOR_WHITE, (10, 10, 10))
 
     def load_map(self):
-        if os.path.exists("map.png"):
-            img = pygame.image.load("map.png").convert()
+        if os.path.exists("mbmap.png"):
+            img = pygame.image.load("mbmap.png").convert()
             self.surface = pygame.transform.scale(img, (MAP_AREA, HEIGHT))
         else:
             # Fallback Grid
@@ -63,19 +62,24 @@ class Agent:
         self.has_app = random.random() < 0.6
         self.hostility = random.uniform(0.0, 1.0)
         self.radius = 8
+        # Ensure x and y exist immediately
+        self.x, self.y = 0, 0
         self.spawn()
+        
         self.angle = random.choice([0, 90, 180, 270])
-        self.speed = random.uniform(1.0, 2.5)
+        self.speed = random.uniform(1.2, 2.8)
         self.state = "WALKING"
         self.timer = 0
         self.activity = random.choice(["Eating No. 5", "Ignoring Roman", "Seeking Sprunk"])
 
     def spawn(self):
-        for _ in range(500):
+        for _ in range(1000):
             rx, ry = random.randint(10, MAP_AREA-10), random.randint(10, HEIGHT-10)
             if self.mh.is_walkable(rx, ry):
-                self.x, self.y = rx, ry
+                self.x, self.y = float(rx), float(ry)
                 return
+        # Hard fallback to center if no white space found
+        self.x, self.y = float(MAP_AREA//2), float(HEIGHT//2)
 
     def update(self, is_controlled, agents):
         old_x, old_y = self.x, self.y
@@ -97,6 +101,7 @@ class Agent:
                 if random.random() < 0.005:
                     self.state = "IDLE"
                     self.timer = random.randint(30, 90)
+                
                 rad = math.radians(self.angle)
                 self.x += math.cos(rad) * self.speed
                 self.y += math.sin(rad) * self.speed
@@ -106,84 +111,85 @@ class Agent:
             self.x, self.y = old_x, old_y
             self.angle = random.choice([0, 90, 180, 270])
 
-        # Agent Collision Logic (Even for controlled)
+        # Agent Collision
         for other in agents:
             if other == self: continue
             dist = math.hypot(self.x - other.x, self.y - other.y)
             if dist < self.radius + other.radius:
-                # Push back
+                # Resolve overlap
                 overlap = (self.radius + other.radius) - dist
                 angle = math.atan2(self.y - other.y, self.x - other.x)
                 self.x += math.cos(angle) * overlap
                 self.y += math.sin(angle) * overlap
-                return other # Return the agent we hit for the log
+                return other 
         return None
 
 class Simulation:
     def __init__(self):
         pygame.init()
-        self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        self.screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN | pygame.SCALED)
+        pygame.display.set_caption("AEGIS SURVEILLANCE")
         self.mh = MapHandler()
         self.agents = [Agent(i, self.mh) for i in range(AGENT_COUNT)]
         self.selected = None
-        self.logs = ["System Initialized...", "Awaiting User Input..."]
+        self.logs = ["Aegis System Online...", "Searching for unencrypted signals..."]
         self.clock = pygame.time.Clock()
         
-        # Eye Overlay Setup
-        self.eye_img = None
-        if os.path.exists("eye.png"):
-            self.eye_img = pygame.image.load("eye.png").convert_alpha()
-        else:
-            # Create a placeholder eye
-            self.eye_img = pygame.Surface((200, 200), pygame.SRCALPHA)
-            pygame.draw.ellipse(self.eye_img, (255, 255, 255, 150), (20, 50, 160, 100))
-            pygame.draw.circle(self.eye_img, (0, 255, 180, 200), (100, 100), 40)
+        # Eye Overlay Surface
+        self.eye_img = pygame.Surface((300, 300), pygame.SRCALPHA)
+        pygame.draw.ellipse(self.eye_img, (255, 255, 255, 120), (20, 80, 260, 140))
+        pygame.draw.circle(self.eye_img, (0, 255, 180, 180), (150, 150), 50)
+        pygame.draw.circle(self.eye_img, (0, 0, 0, 200), (150, 150), 20)
         
         self.eye_alpha = 0
-        self.eye_timer = 0
+        self.eye_timer = 0.0
 
     def add_log(self, msg):
         self.logs.append(msg)
-        if len(self.logs) > 15: self.logs.pop(0)
+        if len(self.logs) > 18: self.logs.pop(0)
 
     def draw_ui(self):
-        # Stats Window (Top)
-        pygame.draw.rect(self.screen, COLOR_UI_PANEL, (MAP_AREA, 0, UI_WIDTH, 300))
-        pygame.draw.line(self.screen, COLOR_ACCENT, (MAP_AREA, 300), (WIDTH, 300), 2)
-        
-        # Log Window (Bottom)
-        pygame.draw.rect(self.screen, (5, 5, 8), (MAP_AREA, 302, UI_WIDTH, HEIGHT - 302))
+        # UI Structure
+        pygame.draw.rect(self.screen, COLOR_UI_PANEL, (MAP_AREA, 0, UI_WIDTH, 320))
+        pygame.draw.line(self.screen, COLOR_ACCENT, (MAP_AREA, 320), (WIDTH, 320), 2)
+        pygame.draw.rect(self.screen, (5, 5, 10), (MAP_AREA, 322, UI_WIDTH, HEIGHT - 322))
         
         f_hdr = pygame.font.SysFont("Courier", 18, bold=True)
         f_std = pygame.font.SysFont("Courier", 14)
 
         if self.selected:
-            # Top Window Stats
-            self.screen.blit(f_hdr.render("TARGET DATA", True, COLOR_ACCENT), (MAP_AREA + 20, 20))
-            self.screen.blit(f_std.render(f"ID: {self.selected.id:03d}", True, COLOR_WHITE), (MAP_AREA+20, 60))
-            host_col = (255, 255 - (255*self.selected.hostility), 0)
-            self.screen.blit(f_std.render(f"HOSTILITY: {int(self.selected.hostility*100)}%", True, host_col), (MAP_AREA+20, 90))
-            self.screen.blit(f_std.render(f"STATUS: {self.selected.activity}", True, COLOR_WHITE), (MAP_AREA+20, 120))
-            self.screen.blit(f_std.render(f"APP INSTALLED: {self.selected.has_app}", True, COLOR_ACCENT), (MAP_AREA+20, 150))
-        
-        # Bottom Window Logs
+            self.screen.blit(f_hdr.render("SIGNAL: CONNECTED", True, COLOR_ACCENT), (MAP_AREA+20, 20))
+            self.screen.blit(f_std.render(f"ENTITY_ID: {self.selected.id:03d}", True, COLOR_WHITE), (MAP_AREA+20, 60))
+            
+            # Hostility Bar
+            h_val = self.selected.hostility
+            r_ui = max(0,min(255,int(255*h_val)))
+            g_ui = max(0,min(255,int(255* (1-h_val))))
+            h_col = (r_ui,g_ui,0)
+            self.screen.blit(f_std.render(f"THREAT LEVEL:", True, COLOR_WHITE), (MAP_AREA+20, 95))
+            pygame.draw.rect(self.screen, (40, 40, 40), (MAP_AREA+20, 115, 200, 10))
+            pygame.draw.rect(self.screen, h_col, (MAP_AREA+20, 115, int(200*h_val), 10))
+            
+            self.screen.blit(f_std.render(f"ACTIVITY: {self.selected.activity}", True, COLOR_WHITE), (MAP_AREA+20, 145))
+            self.screen.blit(f_std.render("> OVERRIDE ENABLED", True, COLOR_ACCENT), (MAP_AREA+20, 280))
+        else:
+            self.screen.blit(f_hdr.render("NO SIGNAL SELECTED", True, (100, 100, 100)), (MAP_AREA+20, 20))
+
+        # Render Log
         for i, log in enumerate(reversed(self.logs)):
             color = (150, 150, 150) if i > 0 else COLOR_ACCENT
-            self.screen.blit(f_std.render(f"> {log}", True, color), (MAP_AREA+15, HEIGHT - 30 - (i * 22)))
+            self.screen.blit(f_std.render(f"> {log}", True, color), (MAP_AREA+15, HEIGHT - 30 - (i * 20)))
 
-    def handle_eye_effect(self):
+    def update_eye(self):
         if self.eye_timer > 0:
             self.eye_timer -= 1/FPS
-            # Fade in then out logic
-            half = EYE_FADE_TIME / 2
-            if self.eye_timer > half: # Fading in
-                self.eye_alpha = int(255 * (1 - (self.eye_timer - half)/half))
-            else: # Fading out
-                self.eye_alpha = int(255 * (self.eye_timer / half))
+            progress = self.eye_timer / EYE_FADE_TIME
+            # Smooth bell-curve alpha
+            alpha = max(0,min(255,int(math.sin(progress * math.pi) * 200)))
             
             temp_eye = self.eye_img.copy()
-            temp_eye.fill((255, 255, 255, self.eye_alpha), special_flags=pygame.BLEND_RGBA_MULT)
-            self.screen.blit(temp_eye, (MAP_AREA//2 - 100, HEIGHT//2 - 100))
+            temp_eye.fill((255, 255, 255, alpha), special_flags=pygame.BLEND_RGBA_MULT)
+            self.screen.blit(temp_eye, (MAP_AREA//2 - 150, HEIGHT//2 - 150))
 
     def run(self):
         while True:
@@ -194,38 +200,43 @@ class Simulation:
                 if event.type == pygame.QUIT: return
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     mx, my = pygame.mouse.get_pos()
-                    old_selected = self.selected
-                    self.selected = None
-                    for a in self.agents:
-                        if math.hypot(a.x - mx, a.y - my) < 20:
-                            if a.has_app:
-                                self.selected = a
-                                if self.selected != old_selected:
-                                    self.eye_timer = EYE_FADE_TIME
-                                    self.add_log(f"Linked to Agent {a.id}")
-                            else:
-                                self.add_log("Connection Refused: Target Encrypted")
-                            break
+                    if mx < MAP_AREA:
+                        old_s = self.selected
+                        self.selected = None
+                        for a in self.agents:
+                            if math.hypot(a.x - mx, a.y - my) < 20:
+                                if a.has_app:
+                                    self.selected = a
+                                    if self.selected != old_s:
+                                        self.eye_timer = EYE_FADE_TIME
+                                        self.add_log(f"Linked to Agent {a.id}")
+                                else:
+                                    self.add_log("Access Denied: Unencrypted Target")
+                                break
 
             # Update Agents
             for a in self.agents:
-                collided_with = a.update(a == self.selected, self.agents)
-                if collided_with and random.random() < 0.05: # Log some collisions
-                    if a == self.selected or collided_with == self.selected:
-                        self.add_log(random.choice(LOG_PHRASES))
-                        if collided_with.hostility > 0.7:
-                            a.hostility = min(1.0, a.hostility + 0.05)
-                            self.add_log("Hostility++ via proximity")
+                target = a.update(a == self.selected, self.agents)
+                if target and random.random() < 0.05:
+                    if a == self.selected or target == self.selected:
+                        phrase = random.choice(LOG_PHRASES)
+                        self.add_log(phrase)
+                        if "Hostility++" in phrase:
+                            a.hostility = min(1.0, a.hostility + 0.1)
 
-            # Draw
+            # Draw Agents
             for a in self.agents:
-                color = (int(255*a.hostility), int(255*(1-a.hostility)), 50)
-                pygame.draw.circle(self.screen, color, (int(a.x), int(a.y)), a.radius)
-                if a.has_app: pygame.draw.circle(self.screen, COLOR_WHITE, (int(a.x), int(a.y)), a.radius+2, 1)
-                if a == self.selected: pygame.draw.circle(self.screen, COLOR_ACCENT, (int(a.x), int(a.y)), a.radius+5, 2)
+                r = max(0,min(255,int(255*a.hostility)))
+                g = max(0,min(255,int(255* (1-a.hostility))))
+
+                color = (r,g,50)
+                pos = (int(a.x), int(a.y))
+                pygame.draw.circle(self.screen, color, pos, a.radius)
+                if a.has_app: pygame.draw.circle(self.screen, COLOR_WHITE, pos, a.radius+2, 1)
+                if a == self.selected: pygame.draw.circle(self.screen, COLOR_ACCENT, pos, a.radius+5, 2)
 
             self.draw_ui()
-            self.handle_eye_effect()
+            self.update_eye()
             pygame.display.flip()
             self.clock.tick(FPS)
 
