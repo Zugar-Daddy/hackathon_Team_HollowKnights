@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blob Grid Map</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root { --cell-size: 60px; }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(9, var(--cell-size));
+            grid-template-rows: repeat(9, var(--cell-size));
+            gap: 1px;
+            background-color: #e5e7eb;
+            border: 2px solid #374151;
+            position: relative;
+        }
+        .cell {
+            width: var(--cell-size);
+            height: var(--cell-size);
+            background-color: white;
+        }
+        .player {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            position: absolute;
+            transition: all 0.8s ease-in-out;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            z-index: 10;
+        }
+        .player:hover { transform: scale(1.1); z-index: 20; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="mb-8 text-center">
+        <h1 class="text-3xl font-bold text-gray-800">Blob World</h1>
+        <p class="text-gray-600">Click a blob to see its stats</p>
+    </div>
+
+    <div class="flex flex-col md:flex-row gap-8 items-start">
+        <!-- Map -->
+        <div id="map" class="grid-container shadow-2xl rounded-lg overflow-hidden">
+            <!-- Grid lines background -->
+            <script>
+                for(let i=0; i<81; i++) document.write('<div class="cell"></div>');
+            </script>
+        </div>
+
+        <!-- Stats Panel -->
+        <div id="stats-panel" class="w-64 bg-white p-6 rounded-xl shadow-lg border border-gray-200 hidden">
+            <h2 class="text-xl font-bold mb-4 text-indigo-600">Player Stats</h2>
+            <div id="stats-content" class="space-y-2">
+                <p><strong>Name:</strong> <span id="stat-name"></span></p>
+                <p><strong>Age:</strong> <span id="stat-age"></span></p>
+                <p><strong>Position:</strong> <span id="stat-pos"></span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const GRID_SIZE = 9;
+        const CELL_SIZE = 60;
+        let players = [];
+
+        async function init() {
+            const response = await fetch('/api/players');
+            players = await response.json();
+            renderPlayers();
+            setInterval(movePlayers, 2000); // Move every 2 seconds
+        }
+
+        function renderPlayers() {
+            const map = document.getElementById('map');
+            players.forEach(p => {
+                const el = document.createElement('div');
+                el.id = `player-${p.id}`;
+                el.className = 'player';
+                el.style.backgroundColor = p.color;
+                el.onclick = () => showStats(p);
+                
+                // Add initials for the "blob"
+                el.innerText = p.name.split(' ').map(n => n[0]).join('');
+                el.classList.add('text-white', 'text-xs', 'font-bold');
+
+                updatePosition(el, p.x, p.y);
+                map.appendChild(el);
+            });
+        }
+
+        function updatePosition(el, x, y) {
+            // Calculate center of cell
+            const top = y * (CELL_SIZE + 1) + (CELL_SIZE - 40) / 2;
+            const left = x * (CELL_SIZE + 1) + (CELL_SIZE - 40) / 2;
+            el.style.top = `${top}px`;
+            el.style.left = `${left}px`;
+        }
+
+        function movePlayers() {
+            players.forEach(p => {
+                // Randomly move to adjacent cell (N, S, E, W or Stay)
+                const dx = Math.floor(Math.random() * 3) - 1; // -1, 0, or 1
+                const dy = Math.floor(Math.random() * 3) - 1;
+
+                p.x = Math.max(0, Math.min(GRID_SIZE - 1, p.x + dx));
+                p.y = Math.max(0, Math.min(GRID_SIZE - 1, p.y + dy));
+
+                const el = document.getElementById(`player-${p.id}`);
+                updatePosition(el, p.x, p.y);
+                
+                // If this is the currently viewed player, update the stats panel live
+                if (document.getElementById('stat-name').innerText === p.name) {
+                    document.getElementById('stat-pos').innerText = `(${p.x}, ${p.y})`;
+                }
+            });
+        }
+
+        function showStats(p) {
+            const panel = document.getElementById('stats-panel');
+            panel.classList.remove('hidden');
+            document.getElementById('stat-name').innerText = p.name;
+            document.getElementById('stat-age').innerText = p.age;
+            document.getElementById('stat-pos').innerText = `(${p.x}, ${p.y})`;
+        }
+
+        init();
+    </script>
+</body>
+</html>
