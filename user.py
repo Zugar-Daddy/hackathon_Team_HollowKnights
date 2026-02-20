@@ -4,127 +4,111 @@ import os
 import time
 
 # --- CONFIGURATION ---
-U_WIDTH, U_HEIGHT = 400, 750
-COLOR_BG = (2, 4, 8)
-COLOR_ACCENT = (0, 255, 180)  # Aegis Green
-COLOR_CRITICAL = (255, 45, 45) # Riot Red
-COLOR_COP = (0, 120, 255)      # Police Blue
-COLOR_CIV = (200, 200, 200)    # Civilian Grey
+U_WIDTH, U_HEIGHT = 450, 800
+COLOR_BG = (2, 4, 10)
+COLOR_TEXT = (0, 255, 180)  # Aegis Cyan
+COLOR_CRITICAL = (255, 50, 50)
+COLOR_TERMINAL_BG = (5, 10, 15)
 
 class AegisUserApp:
     def __init__(self):
         pygame.init()
         self.screen = pygame.display.set_mode((U_WIDTH, U_HEIGHT))
-        pygame.display.set_caption("AEGIS - Field Terminal")
+        pygame.display.set_caption("AEGIS - Field Terminal v1.1")
         self.font = pygame.font.SysFont("Courier", 14, bold=True)
         self.large_font = pygame.font.SysFont("Courier", 22, bold=True)
         
         self.logged_in = False
         self.current_user = None
         self.state_data = {"recent_events": [], "heat_map": []}
-        self.radar_rect = pygame.Rect(20, 100, 360, 250)
+        
+        self.minimap_rect = pygame.Rect(20, 60, 410, 250)
+        self.terminal_rect = pygame.Rect(20, 340, 410, 430)
 
-    def verify_credentials(self, username, password):
-        """Checks the users.json file for a match."""
-        if not os.path.exists("users.json"):
-            print("ERROR: users.json not found!")
-            return False
+    def verify_login(self):
+        """Standard JSON credential check via Console."""
+        print("\n" + "="*35)
+        print(" AEGIS SECURE GATEWAY - VERSION 1.1")
+        print("="*35)
+        u_input = input("USER AUTH ID: ")
+        p_input = input("ACCESS KEY:   ")
 
-        with open("users.json", "r") as f:
-            data = json.load(f)
-            for person in data["authorized_personnel"]:
-                if person["username"] == username and person["password"] == password:
-                    self.current_user = person
-                    return True
+        if os.path.exists("users.json"):
+            with open("users.json", "r") as f:
+                db = json.load(f)
+                for person in db["authorized_personnel"]:
+                    if person["username"] == u_input and person["password"] == p_input:
+                        print(f"\n>> ACCESS GRANTED: Welcome, {person['role']}.")
+                        self.current_user = person
+                        return True
+        print("\n>> ACCESS DENIED: INVALID CREDENTIALS.")
         return False
 
     def login_screen(self):
+        """Displays the 'Locked' UI before authentication."""
         self.screen.fill(COLOR_BG)
+        title = self.large_font.render("AEGIS SATELLITE LINK", True, COLOR_TEXT)
+        self.screen.blit(title, (U_WIDTH//2 - 120, 250))
         
-        # Aegis Branding
-        title = self.large_font.render("AEGIS LOGIN", True, COLOR_ACCENT)
-        self.screen.blit(title, (U_WIDTH//2 - 70, 150))
-        
-        prompt = self.font.render("SYSTEM STATUS: ENCRYPTED", True, (100, 100, 100))
-        self.screen.blit(prompt, (U_WIDTH//2 - 95, 190))
-
-        # Login Button UI
-        btn_rect = pygame.Rect(100, 300, 200, 50)
-        pygame.draw.rect(self.screen, COLOR_ACCENT, btn_rect, 2)
-        btn_txt = self.font.render("INITIATE SYNC", True, COLOR_ACCENT)
-        self.screen.blit(btn_txt, (135, 318))
+        btn_rect = pygame.Rect(100, 350, 250, 50)
+        pygame.draw.rect(self.screen, COLOR_TEXT, btn_rect, 1)
+        btn_txt = self.font.render("INITIALIZE AUTHENTICATION", True, COLOR_TEXT)
+        self.screen.blit(btn_txt, (120, 368))
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT: return False
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if btn_rect.collidepoint(event.pos):
-                    # Input via Console for presentation ease
-                    print("\n" + "="*30)
-                    print(" AEGIS SECURE GATEWAY")
-                    print("="*30)
-                    u = input("Username: ")
-                    p = input("Password: ")
-                    
-                    if self.verify_credentials(u, p):
-                        print(f"ACCESS GRANTED: Welcome {self.current_user['role']} {u}")
+                    if self.verify_login():
                         self.logged_in = True
-                    else:
-                        print("ACCESS DENIED: Unauthorized Credentials.")
         return True
 
-    def draw_dashboard(self):
-        self.screen.fill(COLOR_BG)
-        
-        # Load the latest simulation state
+    def load_state(self):
         if os.path.exists("aegis_state.json"):
             try:
                 with open("aegis_state.json", "r") as f:
                     self.state_data = json.load(f)
             except: pass
 
-        # Header with User Info
-        role_color = COLOR_COP if self.current_user['role'] == "Cop" else COLOR_ACCENT
-        header_txt = self.font.render(f"USER: {self.current_user['username']} | ROLE: {self.current_user['role']}", True, role_color)
-        self.screen.blit(header_txt, (20, 20))
+    def draw_dashboard(self):
+        """The main surveillance interface."""
+        self.load_state()
+        self.screen.fill(COLOR_BG)
         
-        # Radar Background
-        pygame.draw.rect(self.screen, (5, 12, 15), self.radar_rect)
-        pygame.draw.rect(self.screen, (30, 60, 50), self.radar_rect, 1)
+        # Header with Agent Info
+        status = f"CONNECTED: {self.current_user['username']} ({self.current_user['role']})"
+        self.screen.blit(self.font.render(status, True, COLOR_TEXT), (20, 25))
+        
+        # --- MINI-MAP ---
+        pygame.draw.rect(self.screen, (10, 20, 25), self.minimap_rect)
+        pygame.draw.rect(self.screen, COLOR_TEXT, self.minimap_rect, 1)
+        
+        heat_list = self.state_data.get("heat_map", [])
+        for h in heat_list:
+            mx = self.minimap_rect.x + (h[0] / 1150) * self.minimap_rect.width
+            my = self.minimap_rect.y + (h[1] / 750) * self.minimap_rect.height
+            color = COLOR_CRITICAL if h[2] > 0.6 else COLOR_TEXT
+            pygame.draw.circle(self.screen, color, (int(mx), int(my)), 2)
 
-        # Draw Heatmap (Hostility)
-        for h in self.state_data.get("heat_map", []):
-            hx = self.radar_rect.x + (h[0] / 1150) * self.radar_rect.width
-            hy = self.radar_rect.y + (h[1] / 750) * self.radar_rect.height
-            if h[2] > 0.4: # Hostility threshold
-                alpha = int(h[2] * 150)
-                s = pygame.Surface((20, 20), pygame.SRCALPHA)
-                pygame.draw.circle(s, (255, 0, 0, alpha), (10, 10), 10)
-                self.screen.blit(s, (hx-10, hy-10))
+        # --- TERMINAL ---
+        pygame.draw.rect(self.screen, COLOR_TERMINAL_BG, self.terminal_rect)
+        pygame.draw.rect(self.screen, (40, 40, 50), self.terminal_rect, 1)
+        self.screen.blit(self.font.render("--- INTERVENTION_LOG.sh ---", True, (100, 100, 110)), (30, 350))
 
-        # Draw Intervention Events
-        for ev in self.state_data.get("recent_events", []):
-            ex = self.radar_rect.x + (ev["pos"][0] / 1150) * self.radar_rect.width
-            ey = self.radar_rect.y + (ev["pos"][1] / 750) * self.radar_rect.height
-            ev_color = COLOR_CRITICAL if ev["type"] == "MISINFO" else COLOR_ACCENT
-            pygame.draw.circle(self.screen, ev_color, (int(ex), int(ey)), 4)
-
-        # Intervention Log
-        log_y = 380
-        self.screen.blit(self.font.render("INTERVENTION FEED:", True, (150, 150, 150)), (20, log_y))
-        for i, ev in enumerate(reversed(self.state_data.get("recent_events", []))):
-            if i > 12: break
-            color = COLOR_CRITICAL if ev["type"] == "MISINFO" else COLOR_ACCENT
-            msg = f"[{ev['timestamp']}] {ev['message']}"
-            self.screen.blit(self.font.render(msg, True, color), (20, log_y + 30 + i*20))
+        events = self.state_data.get("recent_events", [])
+        for i, ev in enumerate(reversed(events)):
+            if i > 18: break
+            color = COLOR_CRITICAL if ev["type"] == "MISINFO" else COLOR_TEXT
+            msg = f"[{ev['timestamp']}] {ev['message']} @ {ev['pos']}"
+            self.screen.blit(self.font.render(msg, True, color), (35, 380 + i * 22))
 
     def run(self):
-        running = True
-        while running:
+        while True:
             if not self.logged_in:
-                running = self.login_screen()
+                if not self.login_screen(): break
             else:
                 for event in pygame.event.get():
-                    if event.type == pygame.QUIT: running = False
+                    if event.type == pygame.QUIT: return
                 self.draw_dashboard()
             
             pygame.display.flip()
