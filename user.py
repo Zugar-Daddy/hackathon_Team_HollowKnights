@@ -8,93 +8,95 @@ U_WIDTH, U_HEIGHT = 450, 800
 COLOR_BG = (2, 4, 10)
 COLOR_TEXT = (0, 255, 180)  # Aegis Cyan
 COLOR_CRITICAL = (255, 50, 50)
+COLOR_WHITE = (255, 255, 255) # ADDED THIS LINE TO FIX THE ERROR
 COLOR_TERMINAL_BG = (5, 10, 15)
+COLOR_INPUT_BG = (15, 25, 35)
 
 class AegisUserApp:
     def __init__(self):
         pygame.init()
         self.screen = pygame.display.set_mode((U_WIDTH, U_HEIGHT))
-        pygame.display.set_caption("AEGIS - Field Terminal v1.1")
+        pygame.display.set_caption("AEGIS - Field Terminal v1.2")
         self.font = pygame.font.SysFont("Courier", 14, bold=True)
         self.large_font = pygame.font.SysFont("Courier", 22, bold=True)
         
+        # Auth State
         self.logged_in = False
         self.current_user = None
-        self.state_data = {"recent_events": [], "heat_map": []}
+        self.active_field = "username" 
+        self.u_text = ""
+        self.p_text = ""
+        self.error_msg = ""
         
+        # Simulation Data
+        self.state_data = {"recent_events": [], "heat_map": []}
         self.minimap_rect = pygame.Rect(20, 60, 410, 250)
         self.terminal_rect = pygame.Rect(20, 340, 410, 430)
 
-    def verify_login(self):
-        """Standard JSON credential check via Console."""
-        print("\n" + "="*35)
-        print(" AEGIS SECURE GATEWAY - VERSION 1.1")
-        print("="*35)
-        u_input = input("USER AUTH ID: ")
-        p_input = input("ACCESS KEY:   ")
-
+    def check_credentials(self):
         if os.path.exists("users.json"):
             with open("users.json", "r") as f:
                 db = json.load(f)
                 for person in db["authorized_personnel"]:
-                    if person["username"] == u_input and person["password"] == p_input:
-                        print(f"\n>> ACCESS GRANTED: Welcome, {person['role']}.")
+                    if person["username"] == self.u_text and person["password"] == self.p_text:
                         self.current_user = person
                         return True
-        print("\n>> ACCESS DENIED: INVALID CREDENTIALS.")
         return False
 
-    def login_screen(self):
-        """Displays the 'Locked' UI before authentication."""
+    def draw_login_ui(self):
         self.screen.fill(COLOR_BG)
-        title = self.large_font.render("AEGIS SATELLITE LINK", True, COLOR_TEXT)
-        self.screen.blit(title, (U_WIDTH//2 - 120, 250))
         
-        btn_rect = pygame.Rect(100, 350, 250, 50)
-        pygame.draw.rect(self.screen, COLOR_TEXT, btn_rect, 1)
-        btn_txt = self.font.render("INITIALIZE AUTHENTICATION", True, COLOR_TEXT)
-        self.screen.blit(btn_txt, (120, 368))
+        title = self.large_font.render("AEGIS SATELLITE LINK", True, COLOR_TEXT)
+        self.screen.blit(title, (U_WIDTH//2 - 130, 150))
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT: return False
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if btn_rect.collidepoint(event.pos):
-                    if self.verify_login():
-                        self.logged_in = True
-        return True
+        # Username Field
+        u_label = self.font.render("PERSONNEL ID:", True, COLOR_TEXT)
+        self.screen.blit(u_label, (75, 250))
+        u_box = pygame.Rect(75, 275, 300, 40)
+        border_u = COLOR_TEXT if self.active_field == "username" else (50, 80, 70)
+        pygame.draw.rect(self.screen, COLOR_INPUT_BG, u_box)
+        pygame.draw.rect(self.screen, border_u, u_box, 1)
+        self.screen.blit(self.font.render(self.u_text + ("_" if self.active_field == "username" else ""), True, COLOR_WHITE), (85, 287))
 
-    def load_state(self):
+        # Password Field
+        p_label = self.font.render("ACCESS KEY:", True, COLOR_TEXT)
+        self.screen.blit(p_label, (75, 340))
+        p_box = pygame.Rect(75, 365, 300, 40)
+        border_p = COLOR_TEXT if self.active_field == "password" else (50, 80, 70)
+        pygame.draw.rect(self.screen, COLOR_INPUT_BG, p_box)
+        pygame.draw.rect(self.screen, border_p, p_box, 1)
+        masked_pass = "*" * len(self.p_text)
+        self.screen.blit(self.font.render(masked_pass + ("_" if self.active_field == "password" else ""), True, COLOR_WHITE), (85, 377))
+
+        # Error Message
+        if self.error_msg:
+            err = self.font.render(self.error_msg, True, COLOR_CRITICAL)
+            self.screen.blit(err, (U_WIDTH//2 - err.get_width()//2, 430))
+
+    def draw_dashboard(self):
         if os.path.exists("aegis_state.json"):
             try:
                 with open("aegis_state.json", "r") as f:
                     self.state_data = json.load(f)
             except: pass
 
-    def draw_dashboard(self):
-        """The main surveillance interface."""
-        self.load_state()
         self.screen.fill(COLOR_BG)
-        
-        # Header with Agent Info
         status = f"CONNECTED: {self.current_user['username']} ({self.current_user['role']})"
         self.screen.blit(self.font.render(status, True, COLOR_TEXT), (20, 25))
         
-        # --- MINI-MAP ---
+        # Mini-Map
         pygame.draw.rect(self.screen, (10, 20, 25), self.minimap_rect)
         pygame.draw.rect(self.screen, COLOR_TEXT, self.minimap_rect, 1)
-        
-        heat_list = self.state_data.get("heat_map", [])
-        for h in heat_list:
+        for h in self.state_data.get("heat_map", []):
             mx = self.minimap_rect.x + (h[0] / 1150) * self.minimap_rect.width
             my = self.minimap_rect.y + (h[1] / 750) * self.minimap_rect.height
             color = COLOR_CRITICAL if h[2] > 0.6 else COLOR_TEXT
             pygame.draw.circle(self.screen, color, (int(mx), int(my)), 2)
 
-        # --- TERMINAL ---
+        # Terminal
         pygame.draw.rect(self.screen, COLOR_TERMINAL_BG, self.terminal_rect)
         pygame.draw.rect(self.screen, (40, 40, 50), self.terminal_rect, 1)
         self.screen.blit(self.font.render("--- INTERVENTION_LOG.sh ---", True, (100, 100, 110)), (30, 350))
-
         events = self.state_data.get("recent_events", [])
         for i, ev in enumerate(reversed(events)):
             if i > 18: break
@@ -103,12 +105,31 @@ class AegisUserApp:
             self.screen.blit(self.font.render(msg, True, color), (35, 380 + i * 22))
 
     def run(self):
-        while True:
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                
+                if not self.logged_in:
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_TAB:
+                            self.active_field = "password" if self.active_field == "username" else "username"
+                        elif event.key == pygame.K_BACKSPACE:
+                            if self.active_field == "username": self.u_text = self.u_text[:-1]
+                            else: self.p_text = self.p_text[:-1]
+                        elif event.key == pygame.K_RETURN:
+                            if self.check_credentials():
+                                self.logged_in = True
+                            else:
+                                self.error_msg = "AUTHENTICATION FAILURE: ACCESS DENIED"
+                        else:
+                            if self.active_field == "username": self.u_text += event.unicode
+                            else: self.p_text += event.unicode
+
             if not self.logged_in:
-                if not self.login_screen(): break
+                self.draw_login_ui()
             else:
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT: return
                 self.draw_dashboard()
             
             pygame.display.flip()

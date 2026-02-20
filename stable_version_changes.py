@@ -177,6 +177,7 @@ class Agent:
 class Simulation:
     def __init__(self):
         pygame.init()
+        self.sync_timer = 0
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         self.mh = MapHandler()
         self.cam = Camera()
@@ -337,6 +338,12 @@ class Simulation:
                     pygame.draw.rect(self.screen, (20, 20, 30), res_rect)
                     res_txt = f.render(f" > {fa.username} ({fa.role})", True, COLOR_ACCENT)
                     self.screen.blit(res_txt, (MAP_AREA + 25, 223 + (i*25)))
+
+            self.sync_timer += 1
+            if self.sync_timer >= 120: # 60 FPS * 2 Seconds = 120
+                self.sync_to_file()    # Broadcasts current agent positions
+                self.sync_timer = 0    # Reset timer
+
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT: return
