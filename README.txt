@@ -1,4 +1,4 @@
-# AEGIS: SURVEILLANCE & SOCIAL ENGINEERING SIMULATION
+# AEGIS: SURVEILLANCE & SOCIAL ENGINEERING SIMULATION #
 
 ## 1. PROJECT OVERVIEW
 Aegis is a modular simulation ecosystem designed to model urban social engineering, predictive surveillance, and population sentiment manipulation. The system utilizes autonomous agent-based modeling to track and influence the behavior of a populace in a fictional district.
