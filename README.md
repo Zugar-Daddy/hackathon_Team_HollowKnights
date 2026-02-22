@@ -1,4 +1,4 @@
-# AEGIS: SURVEILLANCE & SOCIAL ENGINEERING SIMULATION
+# <PROJECT NAME> AEGIS: SURVEILLANCE & SOCIAL ENGINEERING SIMULATION
 
 A multi-application ecosystem developed to simulate urban social engineering, predictive surveillance, and population sentiment manipulation using Python and Pygame.
 This repository contains the logic bridges, Python simulation scripts, and architectural configurations developed for the Aegis project.
