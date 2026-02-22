@@ -87,6 +87,8 @@ Y_user = Y_offset + ( (Y_admin / H_admin) * H_mini )
   ]
 }
 ```
+---
+
 ## 7. SETUP AND EXECUTION
 ### Dependencies: Install Pygame (pip install pygame).
 
@@ -99,3 +101,4 @@ Execution:
     Launch user.py to access the field terminal.
 
 Login: Enter credentials directly into the GUI. Use [TAB] to switch between Personnel ID and Access Key.
+
