@@ -1,60 +1,101 @@
-# <PROJECT NAME> AEGIS: SURVEILLANCE & SOCIAL ENGINEERING SIMULATION
+# AEGIS: SURVEILLANCE & SOCIAL ENGINEERING SIMULATION
 
-A multi-application ecosystem developed to simulate urban social engineering, predictive surveillance, and population sentiment manipulation using Python and Pygame.
-This repository contains the logic bridges, Python simulation scripts, and architectural configurations developed for the Aegis project.
+## 1. PROJECT OVERVIEW
+Aegis is a modular simulation ecosystem designed to model urban social engineering, predictive surveillance, and population sentiment manipulation. The system utilizes autonomous agent-based modeling to track and influence the behavior of a populace in a fictional district.
 
-The goal of this project is to practice agent-based modeling, real-time data synchronization between separate processes, and tactical UI design.
-
----
-
-## Features Implemented
-- Dual-application architecture (Admin Simulation and Field User Terminal)
-- Autonomous Agent Logic with real-time Trust/Hostility variables
-- Coordinate Mapping (1200x1200px world scaled to 410x250px minimap)
-- Real-time JSON State Synchronization (aegis_state.json)
-- Personnel Authentication System with password masking and field toggling
-- Tactical Surveillance Overlay (Aegis Eye) with smooth Lerp camera tracking
-- Modular Intervention Protocols (Seed Misinfo and Counter Narrative)
-- Search and Track system with fuzzy matching for 80+ NPCs
+The project is structured as a dual-application node system communicating via a shared JSON state layer.
 
 ---
 
-## Technical Specifications (v2.0)
-- Total Resolution: 1600 x 1200 px
-- Active Simulation Map: 1200 x 1200 px (1:1 Aspect Ratio)
-- UI Command Panel: 400 x 1200 px
-- Satellite Uplink Pulse: 2.0s refresh interval for field terminal
-- Framework: Python 3.x / Pygame / JSON Data Layer
+## 2. TECHNICAL SPECIFICATIONS (v2.0)
+* **Total Resolution:** 1600 x 1200 px
+* **Active Simulation Map:** 1200 x 1200 px (1:1 Aspect Ratio)
+* **UI Command Panel:** 400 x 1200 px
+* **Target Frame Rate:** 60 FPS
+* **Agent Density:** Optimized for 80+ concurrent autonomous entities
 
 ---
 
-## Skills Learned (Implementation Details)
-- Agent-Based Modeling (ABM) fundamentals
-- Inter-process communication via shared file states
-- Linear Interpolation (Lerp) for cinematic camera movement
-- 2D Coordinate Transformation and Scaling mathematics
-- GUI Input handling (Text buffers, event polling, masking)
-- Collision mask generation from urban environment bitmaps
-- Social Engineering simulation (Contagious variable modeling)
-- Modular software design for government/surveillance aesthetics
+## 3. SYSTEM ARCHITECTURE
 
-This project serves as a practical notebook of my implementation and understanding.
+### A. Master Simulation Engine (Administrator)
+The core engine manages the physical and psychological state of all agents within a 2D environment.
+* **Agent Logic:** NPCs are modeled as autonomous entities with vectors for speed, position, and orientation. 
+* **Psychological Variables:**
+    * trust_level: A float value (0.0 - 1.0) representing the agent's confidence in the government.
+    * hostility: Inversely proportional to trust. High hostility triggers unique behavioral states and "Riot" phrases.
+    * has_app: A boolean determining if the agent is trackable via the digital footprint.
 
----
-
-## Repository Structure
-Large auto-generated folders, high-resolution environmental textures, and temporary state files are excluded to keep the repo lightweight and legal.
+### B. Field Terminal (User Application)
+A remote client providing a tactical interface for field operatives.
+* **Authentication Layer:** Implements a GUI login interface utilizing a users.json personnel database. 
+* **Satellite Uplink Simulation:** To simulate realistic high-latency data transfer, the minimap and terminal logs refresh on a 2.0s pulse interval.
 
 ---
 
-## How to Build / Run
+## 4. MATHEMATICAL IMPLEMENTATION
 
-1. Clone this repository  
-2. Ensure Python 3.x and Pygame are installed (pip install pygame)
-3. Ensure eye.png, users.json, and anothermap.png (1200x1200px) are in the root directory
-4. Launch admin.py to initialize the simulation engine
-5. Launch user.py to open the field terminal
-6. Authenticate using credentials provided in users.json (Use [TAB] to toggle fields)
+### Coordinate Mapping
+To display the high-resolution world (1200 x 1200) within the User App's compact minimap (410 x 250), a linear scaling transformation is applied:
+
+X_user = X_offset + ( (X_admin / W_admin) * W_mini )
+Y_user = Y_offset + ( (Y_admin / H_admin) * H_mini )
 
 ---
-**END OF DOCUMENT**
+
+## 5. OPERATIONAL PROTOCOLS
+
+### Surveillance and Targeting
+* **Lerp Camera:** The camera utilizes Linear Interpolation to glide smoothly toward targeted entities.
+* **Tactical Overlay:** When a target is locked via the Search Bar, a transparent pulse of the eye.png asset is rendered, centered on the entity's screen-space coordinates.
+
+### Intervention Protocols
+* **Seed Misinfo [R]:** Triggers a localized hostility spike. Trust levels drop to 0.0 for all agents within the pulse radius.
+* **Counter Narrative [P]:** Broadcasts a "Truth Sync" to agents with the app installed, resetting trust to 1.0 and enforcing peace.
+
+---
+
+## 6. DATA STRUCTURES
+
+### State Synchronization (aegis_state.json)
+```json
+{
+  "recent_events": [
+    {
+      "type": "STRING",
+      "pos": [INT, INT],
+      "timestamp": "HH:MM:SS",
+      "message": "STRING"
+    }
+  ],
+  "heat_map": [
+    [X_COORD, Y_COORD, HOSTILITY_VALUE]
+  ],
+  "world_dim": [1200, 1200]
+}
+```
+### Personnel Database (users.json)
+```json
+{
+  "authorized_personnel": [
+    {
+      "username": "STRING",
+      "password": "STRING",
+      "role": "STRING",
+      "clearance": "STRING"
+    }
+  ]
+}
+```
+## 7. SETUP AND EXECUTION
+### Dependencies: Install Pygame (pip install pygame).
+
+Asset Requirements: Ensure eye.png, users.json, and anothermap.png (1200x1200px) are in the root directory.
+
+Execution:
+
+    Launch admin.py to initialize the simulation.
+
+    Launch user.py to access the field terminal.
+
+Login: Enter credentials directly into the GUI. Use [TAB] to switch between Personnel ID and Access Key.
