@@ -5,12 +5,14 @@ import json
 import time
 import os
 
+from pygame.constants import FULLSCREEN
+
 # --- SETTINGS ---
-WIDTH, HEIGHT = 1150, 750
-UI_WIDTH = 320
+WIDTH, HEIGHT = 1600, 1100
+UI_WIDTH = 400
 MAP_AREA = WIDTH - UI_WIDTH
 FPS = 60
-AGENT_COUNT = 45
+AGENT_COUNT = 60
 EYE_FADE_TIME = 2.0 
 
 # Surveillance Aesthetic Colors

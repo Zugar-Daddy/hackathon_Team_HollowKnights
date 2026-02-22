@@ -88,8 +88,8 @@ class AegisUserApp:
         pygame.draw.rect(self.screen, (10, 20, 25), self.minimap_rect)
         pygame.draw.rect(self.screen, COLOR_TEXT, self.minimap_rect, 1)
         for h in self.state_data.get("heat_map", []):
-            mx = self.minimap_rect.x + (h[0] / 1150) * self.minimap_rect.width
-            my = self.minimap_rect.y + (h[1] / 750) * self.minimap_rect.height
+            mx = self.minimap_rect.x + (h[0] / 1600) * self.minimap_rect.width
+            my = self.minimap_rect.y + (h[1] / 1200) * self.minimap_rect.height
             color = COLOR_CRITICAL if h[2] > 0.6 else COLOR_TEXT
             pygame.draw.circle(self.screen, color, (int(mx), int(my)), 2)
 
