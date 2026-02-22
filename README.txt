@@ -1,60 +1,96 @@
-This chat history documents the development of Aegis, a high-concept surveillance simulation inspired by the tactical and moral complexities of the FIB from GTA V. The project evolved from a conceptual presentation into a functional, multi-application software ecosystem.
-1. Concept & Narrative Design
+# AEGIS: SURVEILLANCE & SOCIAL ENGINEERING SIMULATION
 
-The project began by defining the "greater good" philosophy of Aegis. The documentation centers on three pillars:
+## 1. PROJECT OVERVIEW
+Aegis is a modular simulation ecosystem designed to model urban social engineering, predictive surveillance, and population sentiment manipulation. The system utilizes autonomous agent-based modeling to track and influence the behavior of a populace in a fictional district.
 
-    Problem: Societal instability and riots in the city of San Viceroy.
+The project is structured as a dual-application node system communicating via a shared JSON state layer.
 
-    Solution: A "God-Eye" dashboard providing government access to influence citizen sentiment (Peace vs. Riot induction).
+---
 
-    Evolution: Transitioning from 2D schematics to 3D real-world mapping with real-time hostility metrics.
+## 2. TECHNICAL SPECIFICATIONS (v2.0)
+* **Total Resolution:** 1600 x 1200 px
+* **Active Simulation Map:** 1200 x 1200 px (1:1 Aspect Ratio)
+* **UI Command Panel:** 400 x 1200 px
+* **Target Frame Rate:** 60 FPS
+* **Agent Density:** Optimized for 80+ concurrent autonomous entities
 
-2. Technical Architecture
+---
 
-The system was developed using a Client-Server (Admin-User) model.
+## 3. SYSTEM ARCHITECTURE
 
-    Administrator (Master Engine): A Pygame-based simulation managing 45+ autonomous "blobs" (agents). It calculates real-time Trust and Hostility levels.
+### A. Master Simulation Engine (Administrator)
+The core engine manages the physical and psychological state of all agents within a 2D environment.
+* **Agent Logic:** NPCs are modeled as autonomous entities with vectors for speed, position, and orientation. 
+* **Psychological Variables:**
+    * trust_level: A float value (0.0 - 1.0) representing the agent's confidence in the government.
+    * hostility: Inversely proportional to trust. High hostility triggers unique behavioral states and "Riot" phrases.
+    * has_app: A boolean determining if the agent is trackable via the digital footprint.
 
-    JSON Bridge (aegis_state.json): A shared data layer that allows the Admin to broadcast agent coordinates, sentiment heatmaps, and intervention logs.
+### B. Field Terminal (User Application)
+A remote client providing a tactical interface for field operatives.
+* **Authentication Layer:** Implements a GUI login interface utilizing a users.json personnel database. 
+* **Satellite Uplink Simulation:** To simulate realistic high-latency data transfer, the minimap and terminal logs refresh on a 2.0s pulse interval.
 
-    User Application (Field Terminal): A secondary interface for field agents to monitor the city remotely.
+---
 
-3. Feature Implementation Milestone
+## 4. MATHEMATICAL IMPLEMENTATION
 
-Throughout the development, several key features were integrated:
+### Coordinate Mapping
+To display the high-resolution world (1200 x 1200) within the User App's compact minimap (410 x 250), a linear scaling transformation is applied:
 
-    Tactical Interventions: Implemented keyboard triggers for Seed Misinfo [R] (increases hostility) and Counter Narrative [P] (restores peace).
+X_user = X_offset + ( (X_admin / W_admin) * W_mini )
+Y_user = Y_offset + ( (Y_admin / H_admin) * H_mini )
 
-    Surveillance UI: Integrated a Satellite Eye Overlay (eye.png) that pulses and centers on a target when the camera zooms in.
+---
 
-    Coordinate Mapping: Developed a mathematical translation to scale the large Admin world (1150×750) into a compact User Mini-map (410×250).
+## 5. OPERATIONAL PROTOCOLS
 
-    Search & Track: Added a search bar that parses a users.json database of 30 unique personas (Cops, Criminals, Civilians), allowing the user to find and lock onto specific entities.
+### Surveillance and Targeting
+* **Lerp Camera:** The camera utilizes Linear Interpolation to glide smoothly toward targeted entities.
+* **Tactical Overlay:** When a target is locked via the Search Bar, a transparent pulse of the eye.png asset is rendered, centered on the entity's screen-space coordinates.
 
-4. Security & Access Control
+### Intervention Protocols
+* **Seed Misinfo [R]:** Triggers a localized hostility spike. Trust levels drop to 0.0 for all agents within the pulse radius.
+* **Counter Narrative [P]:** Broadcasts a "Truth Sync" to agents with the app installed, resetting trust to 1.0 and enforcing peace.
 
-The project includes a robust security layer:
+---
 
-    Personnel Database: A users.json file containing 30 unique sets of credentials.
+## 6. DATA STRUCTURES
 
-    In-App Authentication: A custom-built UI login within the User App (v1.2) that supports keyboard input, backspacing, password masking (*), and field toggling via [TAB].
+### State Synchronization (aegis_state.json)
+```json
+{
+  "recent_events": [
+    {
+      "type": "STRING",
+      "pos": [INT, INT],
+      "timestamp": "HH:MM:SS",
+      "message": "STRING"
+    }
+  ],
+  "heat_map": [
+    [X_COORD, Y_COORD, HOSTILITY_VALUE]
+  ],
+  "world_dim": [1200, 1200]
+}
+### Personnel Database
+```json
+{
+  "authorized_personnel": [
+    {
+      "username": "STRING",
+      "password": "STRING",
+      "role": "STRING",
+      "clearance": "STRING"
+    }
+  ]
+}
 
-    Latency Simulation: The Mini-map was updated to refresh every 2 seconds, simulating a realistic satellite uplink delay rather than a constant stream.
+## 7. SETUP AND EXECUTION
 
-5. Deployment Notes
-
-For documentation purposes, the following files are required for a full system launch:
-
-    admin.py: The core simulation engine.
-
-    user.py: The remote field terminal with the UI login.
-
-    users.json: The personnel credential database.
-
-    eye.png: The tactical overlay asset.
-
-    anothermap.png: (Optional) The urban layout for San Viceroy.
-
-
-
-See chat history at: https://gemini.google.com/share/a93d3aaf990d
+### Dependencies: Install Pygame (pip install pygame).
+### Asset Requirements: Ensure eye.png, users.json, and anothermap.png (1200x1200px) are in the root directory.
+### Execution:
+* ** Launch admin.py to initialize the simulation.
+* ** Launch user.py to access the field terminal.
+* ** Login: Enter credentials directly into the GUI. Use [TAB] to switch between Personnel ID and Access Key.
